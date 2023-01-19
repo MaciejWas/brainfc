@@ -1,0 +1,1 @@
+[Simple([Plus, Plus, Plus]), Loop([Simple([Plus, Plus, Plus]), Loop([Simple([Plus])]), Loop([Simple([Minus, Minus])]), Simple([Plus, Plus]), Loop([Loop([]), Loop([])]), Simple([Minus, Minus, Plus, Plus])]), Simple([Minus, Minus, Minus, Plus, Plus]), Loop([]), Loop([Simple([Minus])])]
