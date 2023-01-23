@@ -1,4 +1,4 @@
-use log::{debug, info};
+use log::debug;
 
 #[derive(PartialEq, Eq)]
 pub enum Op {
@@ -13,10 +13,10 @@ pub enum Op {
 impl std::fmt::Debug for Op {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Op::Modify(x) => write!(f, "(mod {})", x),
-            Op::Move(x) => write!(f, "(mov {})", x),
-            Op::Outp(x) => write!(f, "(out {})", x),
-            Op::Inp(x) => write!(f, "(inp {})", x),
+            Op::Modify(x) => write!(f, "(mod {x})"),
+            Op::Move(x) => write!(f, "(mov {x})"),
+            Op::Outp(x) => write!(f, "(out {x})"),
+            Op::Inp(x) => write!(f, "(inp {x})"),
             Op::LBr => write!(f, "( [ )"),
             Op::RBr => write!(f, "( ] )"),
         }
@@ -103,18 +103,16 @@ fn squash(mut vec: Vec<Op>, next_token: Op) -> Vec<Op> {
         _ => unreachable!(),
     };
 
-    return vec;
+    vec
 }
 
 pub fn parse(program: &String) -> Vec<Op> {
     let unflattened = program
         .chars()
-        .map(Op::from_char)
-        .filter(Option::is_some)
-        .map(Option::unwrap)
+        .filter_map(Op::from_char)
         .fold(Vec::new(), squash);
 
     debug!("Parsed: {:?}", unflattened);
-    println!("{:?}", unflattened);
+    println!("{unflattened:?}");
     unflattened
 }

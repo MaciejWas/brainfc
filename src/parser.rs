@@ -1,5 +1,5 @@
 use super::lexer::Op;
-use log::{debug, info};
+use log::debug;
 
 #[derive(Debug)]
 pub enum Block {
@@ -101,12 +101,11 @@ impl ProgramBuilder {
             return Err(err);
         }
         if self.parsing_stack.len() == 1 {
-            return self
-                .parsing_stack
+            self.parsing_stack
                 .pop()
-                .ok_or("Unexpected empty parsing stack".to_string());
+                .ok_or("Unexpected empty parsing stack".to_string())
         } else {
-            return Err("Parsing finalized before clearing parsing stack.".to_string());
+            Err("Parsing finalized before clearing parsing stack.".to_string())
         }
     }
 }

@@ -1,14 +1,11 @@
-use std::cell::Cell;
-
-use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::{
     CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine,
 };
-use inkwell::types::{IntType, PointerType};
-use inkwell::values::{FunctionValue, IntValue, PointerValue};
+
+use inkwell::values::{IntValue, PointerValue};
 use inkwell::AddressSpace;
 use inkwell::OptimizationLevel;
 
@@ -245,19 +242,19 @@ impl<'ctxt, 'a> LLVMBuilder<'ctxt, 'a> {
             .with_extension("o");
 
         target_machine
-            .write_to_file(&self.module, FileType::Object, output.as_path())
+            .write_to_file(self.module, FileType::Object, output.as_path())
             .unwrap();
     }
 
     fn compile(&self, program: &Program) {
         for block in program {
-            self.compile_block(&block);
+            self.compile_block(block);
         }
     }
 
     fn compile_instructions(&self, instrs: &Vec<Op>) {
         for i in instrs {
-            self.compile_instruction(&i)
+            self.compile_instruction(i)
         }
     }
 

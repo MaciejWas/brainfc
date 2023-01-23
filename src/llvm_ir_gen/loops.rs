@@ -3,18 +3,9 @@ use std::cell::Cell;
 use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::module::{Linkage, Module};
-use inkwell::targets::{
-    CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine,
-};
-use inkwell::types::{IntType, PointerType};
-use inkwell::values::{FunctionValue, IntValue, PointerValue};
-use inkwell::AddressSpace;
-use inkwell::OptimizationLevel;
+use inkwell::module::Module;
 
-use crate::app::Args;
-use crate::lexer::Op;
-use crate::parser::{Block, Program};
+use inkwell::values::PointerValue;
 
 pub struct Loop<'ctxt, 'a> {
     pub context: &'ctxt Context,
@@ -47,8 +38,8 @@ impl<'ctxt, 'a> Loop<'ctxt, 'a> {
         let curr_loop_id = self.loop_id.get() + 1;
         self.loop_id.set(curr_loop_id);
 
-        let loop_block_name = format!("loop_{}", curr_loop_id);
-        let cont_block_name = format!("cont_{}", curr_loop_id);
+        let loop_block_name = format!("loop_{curr_loop_id}");
+        let cont_block_name = format!("cont_{curr_loop_id}");
 
         let main_fn = self.module.get_function("main").unwrap();
         let loop_block = self

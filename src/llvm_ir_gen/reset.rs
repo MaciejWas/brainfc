@@ -1,17 +1,8 @@
-use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
-use inkwell::module::{Linkage, Module};
-use inkwell::targets::FileType;
-use inkwell::targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine};
-use inkwell::types::{IntType, PointerType};
-use inkwell::values::{FunctionValue, IntValue, PointerValue};
-use inkwell::AddressSpace;
-use inkwell::OptimizationLevel;
+use inkwell::module::Module;
 
-use crate::app::Args;
-use crate::lexer::Op;
-use crate::parser::{Block, Program};
+use inkwell::values::PointerValue;
 
 pub struct Reset<'ctxt, 'a> {
     context: &'ctxt Context,

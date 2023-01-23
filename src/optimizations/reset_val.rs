@@ -1,6 +1,6 @@
 use crate::lexer::Op;
 use crate::optimizations::base::Optimization;
-use crate::parser::{Block, Program};
+use crate::parser::Block;
 
 pub struct ResetValOpt;
 impl Optimization for ResetValOpt {
@@ -21,6 +21,6 @@ impl Optimization for ResetValOpt {
             return Some(Block::Reset { offset: 0 });
         }
 
-        return None;
+        None
     }
 }

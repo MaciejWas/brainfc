@@ -11,11 +11,11 @@ pub mod optimizer;
 pub mod parser;
 
 fn report_error(msg: String) {
-    eprintln!("{} {}", "error: ".red().bold().to_string(), msg);
+    eprintln!("{} {}", "error: ".red().bold(), msg);
 }
 
 fn report_info(msg: String) {
-    eprintln!("{} {}", "info: ".bold().to_string(), msg);
+    eprintln!("{} {}", "info: ".bold(), msg);
 }
 
 fn main() {
@@ -38,13 +38,13 @@ fn main() {
     let parsed = parsed.unwrap();
 
     if args.show_parsed {
-        println!("{:?}", parsed);
+        println!("{parsed:?}");
     }
 
     report_info("Optimizing...".to_string());
     let optimized = Optimizer::new().optimize(parsed);
     if args.show_optimized {
-        println!("{:?}", optimized);
+        println!("{optimized:?}");
     }
 
     let output_file = args
@@ -53,7 +53,7 @@ fn main() {
         .cloned()
         .unwrap_or(PathBuf::new().with_file_name("out"));
 
-    let object_file = output_file.clone().with_extension("o");
+    let object_file = output_file.with_extension("o");
 
     report_info("Compiling...".to_string());
     llvm_ir_gen::compile(optimized, args);
@@ -78,7 +78,6 @@ fn main() {
 
 #[cfg(test)]
 mod test {
-    use super::*;
 
     macro_rules! build_ir_test {
         ($name:ident) => {

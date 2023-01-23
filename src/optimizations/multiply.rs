@@ -2,8 +2,6 @@ use crate::lexer::Op;
 use crate::optimizations::base::Optimization;
 use crate::parser::Block;
 
-use log::debug;
-
 pub struct MultiplyOpt;
 
 impl Optimization for MultiplyOpt {
@@ -46,7 +44,7 @@ impl Optimization for MultiplyOpt {
                     Op::Modify(x) => init[pos] += x,
                     _ => unreachable!(),
                 }
-                println!("init: {:?}", init);
+                println!("init: {init:?}");
             }
 
             if init[max_cell_distance as usize] != -1 {
@@ -57,13 +55,13 @@ impl Optimization for MultiplyOpt {
             let ops = init
                 .into_iter()
                 .enumerate()
-                .filter(|(i, val)| *val != 0)
-                .filter(|(i, val)| *i != max_cell_distance as usize)
+                .filter(|(_i, val)| *val != 0)
+                .filter(|(i, _val)| *i != max_cell_distance as usize)
                 .map(|(i, val)| ((i as i32 - max_cell_distance as i32), val as i32))
                 .collect::<Vec<(i32, i32)>>();
             println!("DONE");
 
-            let has_negative_mods = ops.iter().filter(|(i, val)| *i < 0).next().is_some();
+            let has_negative_mods = ops.iter().any(|(i, _val)| *i < 0);
             if has_negative_mods {
                 println!("rejected");
                 return None;
