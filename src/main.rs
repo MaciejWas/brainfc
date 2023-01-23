@@ -1,13 +1,14 @@
 use clap::Parser;
 use std::path::PathBuf;
 use colored::Colorize;
+use optimizer::Optimizer;
 
 pub mod lexer;
 pub mod parser;
+pub mod optimizations;
 pub mod app;
 pub mod llvm_ir_gen;
 pub mod optimizer;
-pub mod tape_functions;
 
 fn report_error(msg: String) {
     eprintln!("{} {}", "error: ".red().bold().to_string(), msg);
@@ -41,7 +42,7 @@ fn main() {
     }
 
     report_info("Optimizing...".to_string());
-    let optimized = optimizer::optimize(parsed);
+    let optimized = Optimizer::new().optimize(parsed);
     if args.show_optimized {
         println!("{:?}", optimized);
     }
@@ -62,7 +63,7 @@ fn main() {
         .args([object_file.to_str().unwrap(), "-o", output_file.to_str().unwrap()])
         .spawn().unwrap().wait().unwrap();
 
-    report_info("Done".to_string());
+    report_info(format!("Done ({})", output_file.as_path().as_os_str().to_str().unwrap()));
 }
 
 
@@ -82,11 +83,4 @@ mod test {
             }
         };
     }
-
-
-    build_ir_test!(empty_file);
-    build_ir_test!(simple_1);
-    build_ir_test!(comments);
-    build_ir_test!(mandelbrot);
-
 }

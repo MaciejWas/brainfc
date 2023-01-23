@@ -3,19 +3,22 @@ use inkwell::types::{IntType, PointerType};
 use inkwell::builder::{Builder, };
 use inkwell::basic_block::BasicBlock;
 use inkwell::module::{Linkage, Module, };
-use inkwell::values::{PointerValue, FunctionValue};
+use inkwell::values::{PointerValue, FunctionValue, IntValue};
 use inkwell::targets::{
     CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine,
 };
 use inkwell::AddressSpace;
 use inkwell::OptimizationLevel;
 
+mod move_block;
+mod modify_block;
+mod write_char;
 
 use std::cell::Cell;
 
 use crate::app::Args;
-use crate::lexer::Token;
-use crate::optimizer::{OptimizedBlock, OptimizedProgram, Instruction};
+use crate::lexer::Op;
+use crate::parser::{Program, Block};
 
 const WRITE_FN_NAME: &str = "write";
 const READ_FN_NAME: &str = "read";
@@ -42,6 +45,9 @@ struct LLVMBuilder<'ctxt, 'a> {
     module: &'a Module<'ctxt>,
     builder: &'a Builder<'ctxt>,
 
+    move_block: MoveBlock<'ctxt, 'a>,
+    modify_block: ModifyBlock<'ctxt, 'a>,
+
     loop_id: Cell<u16>,
 
     libc: Option<Libc<'ctxt>>,
@@ -56,7 +62,14 @@ struct LLVMBuilder<'ctxt, 'a> {
 impl <'ctxt, 'a> LLVMBuilder<'ctxt, 'a> {
     fn new(context: &'ctxt Context, module: &'a Module<'ctxt>, builder: &'a Builder<'ctxt>, args: Args) -> Self {
         let (tape, tape_pos) = Self::create_global_variables(context, module);
+
+        let move_block = move_block::MoveBlock {  context, module, builder, tape, tape_pos };
+        let modify_block = modify_block::ModifyBlock {  context, module, builder, tape, tape_pos };
+        let write_char = write_char::WriteChar {  context, module, builder, tape, tape_pos };
+        
         LLVMBuilder {
+            move_block,
+            modify_block,
             context,
             module,
             builder,
@@ -69,52 +82,10 @@ impl <'ctxt, 'a> LLVMBuilder<'ctxt, 'a> {
         }
     }
 
-    fn create_move_fn(&self) {
-        let move_fn = self.module.add_function(
-            MOVE_FN_NAME,  
-            self.context.void_type().fn_type(&[self.context.i32_type().into()], false), 
-            None
-        );
-        let move_value = move_fn.get_first_param().unwrap().into_int_value();
-
-        let entry_block = self.context.append_basic_block(move_fn, "entry");
+    fn build_entry_block(&self, f: FunctionValue) -> BasicBlock {
+        let entry_block = self.context.append_basic_block(f, "entry");
         self.builder.position_at_end(entry_block);
-
-        let current_tape_pos = self.builder
-            .build_load(self.tape_pos, "tape_pos")
-            .into_int_value();
-        let new_tape_pos = self.builder
-            .build_int_add(move_value, current_tape_pos, "new_value");
-        self.builder.build_store(self.tape_pos, new_tape_pos);
-        self.builder.build_return(None);
-    }
-
-    fn create_modify_fn(&self) {
-        let modify_fn = self.module.add_function(
-            MODIFY_FN_NAME,  
-            self.context.void_type().fn_type(&[self.context.i32_type().into()], false), 
-            None
-        );
-        let diff = modify_fn.get_first_param().unwrap().into_int_value();
-
-        let entry_block = self.context.append_basic_block(modify_fn, "entry");
-        self.builder.position_at_end(entry_block);
-
-        let current_tape_pos = self.builder
-            .build_load(self.tape_pos, "tape_pos")
-            .into_int_value();
-
-        let ptr_to_value = unsafe {
-            self.builder.build_gep(
-                self.tape, 
-                &[self.context.i32_type().const_int(0, false), current_tape_pos],
-                "ptr_to_value"
-            )
-        };
-        let value = self.builder.build_load(ptr_to_value, "value").into_int_value();
-        let new_value = self.builder.build_int_add(value, diff, "new_value");
-        self.builder.build_store(ptr_to_value, new_value);
-        self.builder.build_return(None);
+        entry_block
     }
 
     fn create_write_char_fn(&self) {
@@ -124,13 +95,9 @@ impl <'ctxt, 'a> LLVMBuilder<'ctxt, 'a> {
             None
         );
 
-        let entry_block = self.context.append_basic_block(write_fn, "entry");
-        self.builder.position_at_end(entry_block);
+        self.build_entry_block(write_fn);
 
-        let current_tape_pos = self.builder
-            .build_load(self.tape_pos, "tape_pos")
-            .into_int_value();
-
+        let current_tape_pos = self.build_load_tape_pos();
         let ptr_to_value = unsafe {
             self.builder.build_gep(
                 self.tape, 
@@ -150,20 +117,11 @@ impl <'ctxt, 'a> LLVMBuilder<'ctxt, 'a> {
             None
         );
 
-        let entry_block = self.context.append_basic_block(zero_fn, "entry");
-        self.builder.position_at_end(entry_block);
+        let entry_block = self.build_entry_block(zero_fn);
 
-        let current_tape_pos = self.builder
-            .build_load(self.tape_pos, "tape_pos")
-            .into_int_value();
+        let current_tape_pos = self.build_load_tape_pos();
+        let ptr_to_value = self.build_pointer_to_value(current_tape_pos);
 
-        let ptr_to_value = unsafe {
-            self.builder.build_gep(
-                self.tape, 
-                &[self.context.i32_type().const_int(0, false), current_tape_pos],
-                "ptr_to_value"
-            )
-        };
         self.builder.build_store(ptr_to_value, self.context.i32_type().const_zero());
         self.builder.build_return(None);
     }
@@ -175,8 +133,7 @@ impl <'ctxt, 'a> LLVMBuilder<'ctxt, 'a> {
             None
         );
 
-        let entry_block = self.context.append_basic_block(read_fn, "entry");
-        self.builder.position_at_end(entry_block);
+        let entry_block = self.build_entry_block(read_fn);
 
         let current_tape_pos = self.builder
             .build_load(self.tape_pos, "tape_pos")
@@ -215,6 +172,118 @@ impl <'ctxt, 'a> LLVMBuilder<'ctxt, 'a> {
         tape_pos.set_initializer(&i32_type.const_zero());
 
         (tape.as_pointer_value(), tape_pos.as_pointer_value())
+    }
+
+    fn build_load_tape_pos(&self) -> IntValue<'ctxt> {
+        self.builder
+            .build_load(self.tape_pos, "tape_pos")
+            .into_int_value()
+    }
+
+    fn build_load_value(&self) -> IntValue<'ctxt> {
+        let current_tape_pos = self.build_load_tape_pos();
+        let ptr = self.build_pointer_to_value(current_tape_pos);
+        self.build_load_value_from_pointer(ptr)
+    }
+
+    fn build_pointer_to_value(&self, current_tape_pos: IntValue) -> PointerValue<'ctxt> {
+        unsafe {
+            self.builder.build_gep(
+                self.tape, 
+                &[self.context.i32_type().const_int(0, false), current_tape_pos],
+                "ptr_to_value"
+            )
+        }
+    }
+
+    fn build_load_value_from_pointer(&self, ptr: PointerValue) -> IntValue<'ctxt> {
+        self.builder.build_load(ptr, "value").into_int_value()
+    }
+
+    fn compare_with_zero(&self, val: IntValue<'ctxt>) -> IntValue<'ctxt> {
+        self.builder.build_int_compare(
+            inkwell::IntPredicate::NE,
+            val,
+            self.context.i8_type().const_zero(),
+            "compare value at pointer to zero",
+        )
+    }
+
+    fn build_jump(&self, jump_size: i32) {
+        let loop_block_name = format!("jump_loop");
+        let cont_block_name = format!("jump_cont");
+
+        let main_fn = self.module.get_function("main").unwrap();
+        let loop_block = self.context.append_basic_block(main_fn, loop_block_name.as_str());
+        let cont_block = self.context.append_basic_block(main_fn, cont_block_name.as_str());
+
+        let value = self.build_load_value();
+        let cmp = self.compare_with_zero(value);
+        
+        self.builder.block
+
+        self.builder.build_conditional_branch(cmp, loop_block, cont_block);
+        self.builder.position_at_end(loop_block);
+
+        let phi = self.builder.build_phi(self.context.i32_type(), "next_val")
+            .add_incoming([  ]);
+        
+
+    }
+
+    fn build_multiply(&self, ops: Vec<(i32, i32)>) {
+        let current_tape_pos = self.builder
+            .build_load(self.tape_pos, "tape_pos")
+            .into_int_value();
+
+        let ptr_to_base_value = unsafe {
+            self.builder.build_gep(
+                self.tape, 
+                &[self.context.i32_type().const_int(0, false), current_tape_pos],
+                "ptr_to_value"
+            )
+        };
+
+        let base_value = self.builder.build_load(ptr_to_base_value, "base_value").into_int_value();
+
+
+        for (diff, multiply_val) in ops {
+
+            // Load value to be modified
+            let modification_pos = self.builder.build_int_add(
+                current_tape_pos, 
+                self.context.i32_type().const_int(diff as u64, false), 
+                "modification_pos"
+            );
+            let ptr_to_value = unsafe {
+                self.builder.build_gep(
+                    self.tape, 
+                    &[self.context.i32_type().const_int(0, false), modification_pos],
+                    "ptr_to_value"
+                )
+            };
+            let value = self.builder
+                .build_load(ptr_to_value, "value")
+                .into_int_value(); 
+
+            // Calculate the new value
+            let multipled = self.builder.build_int_mul(
+                base_value,
+                self.context.i32_type().const_int(multiply_val as u64, false),
+                "multipled"
+            );
+            let new_value = self.builder.build_int_add(
+                value,
+                multipled,
+                "new_value"
+            );
+
+            // Store new value
+            self.builder.build_store(ptr_to_value, new_value);
+        }
+
+        self.builder.build_store(ptr_to_base_value, self.context.i32_type().const_int(0, false));
+
     }
 
     fn build_loop_start(&self) -> (BasicBlock, BasicBlock) {
@@ -362,46 +431,42 @@ impl <'ctxt, 'a> LLVMBuilder<'ctxt, 'a> {
 
     }
 
-    fn compile(&self, program: &OptimizedProgram) {
+    fn compile(&self, program: &Program) {
         for block in program {
             self.compile_block(&block);
         }
     }
 
-    fn compile_instructions(&self, instrs: &Vec<Instruction>) {
+    fn compile_instructions(&self, instrs: &Vec<Op>) {
         for i in instrs {
             self.compile_instruction(&i)
         }
     }
 
-    fn compile_instruction(&self, i: &Instruction) {
-        use Instruction::*;
-        
+    fn compile_instruction(&self, i: &Op) {
         let tape_fncs = self.tape_fncs.as_ref().unwrap();
 
         match &i {
-            Move(x) => {self.builder.build_call(tape_fncs.move_fn, &[ self.context.i32_type().const_int(*x as u64, false).into() ], "_");},
-            Modify(x) => {self.builder.build_call(tape_fncs.modify_fn, &[ self.context.i32_type().const_int(*x as u64, false).into() ], "_");},
-            Other(token) => match token {
-                Token::In => { self.builder.build_call(tape_fncs.read_fn, &[], "_"); },
-                Token::Out => { self.builder.build_call(tape_fncs.write_fn, &[], "_"); },
-                _ => {}
-            }
+            Op::Move(x) => { self.move_block.build(*x) },
+            Op::Modify(x) => {self.builder.build_call(tape_fncs.modify_fn, &[ self.context.i32_type().const_int(*x as u64, false).into() ], "_");},
+            Op::Inp(x) => { for _ in 0..(*x) {self.builder.build_call(tape_fncs.read_fn, &[], "_"); }},
+            Op::Outp(x) => { for _ in 0..(*x) {self.builder.build_call(tape_fncs.write_fn, &[], "_"); }},
+             _ => {}
         }
     }
 
-    fn compile_block(&self, block: &OptimizedBlock) {
-        use OptimizedBlock::*;
-
+    fn compile_block(&self, block: &Block) {
+        use Block::*;
         match &block {
             Simple(ref instrs) => self.compile_instructions(instrs),
             Loop(ref program) => self.compile_loop(program),
-            ResetVal => { self.builder.build_call(self.tape_fncs.as_ref().unwrap().zero_fn, &[], "_" ); }
+            Reset { .. } => { self.builder.build_call(self.tape_fncs.as_ref().unwrap().zero_fn, &[], "_" ); }
+            Multiply { ops } => { self.build_multiply(ops.clone()) }
             _ => {}
         }
     }
 
-    fn compile_loop(&self, program: &OptimizedProgram) {
+    fn compile_loop(&self, program: &Program) {
         let (loop_block, cont_block) = self.build_loop_start();
 
         self.compile(program);
@@ -410,7 +475,7 @@ impl <'ctxt, 'a> LLVMBuilder<'ctxt, 'a> {
     }
 }
 
-pub fn compile(program: OptimizedProgram, args: Args) {
+pub fn compile(program: Program, args: Args) {
     let context = Context::create();
     let module = context.create_module("brainf");
     let builder = context.create_builder();
