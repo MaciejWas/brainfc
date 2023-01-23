@@ -1,6 +1,6 @@
-pub mod reset_val;
 pub mod base;
 pub mod multiply;
+pub mod reset_val;
 
-pub use reset_val::ResetValOpt;
 pub use multiply::MultiplyOpt;
+pub use reset_val::ResetValOpt;

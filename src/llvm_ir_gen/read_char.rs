@@ -14,15 +14,16 @@ use crate::app::Args;
 use crate::lexer::Op;
 use crate::parser::{Block, Program};
 
-pub struct ModifyBlock<'ctxt, 'a> {
+pub struct ReadChar<'ctxt, 'a> {
     context: &'ctxt Context,
     module: &'a Module<'ctxt>,
     builder: &'a Builder<'ctxt>,
+
     tape: PointerValue<'ctxt>,
     tape_pos: PointerValue<'ctxt>,
 }
 
-impl<'ctxt, 'a> ModifyBlock<'ctxt, 'a> {
+impl<'ctxt, 'a> ReadChar<'ctxt, 'a> {
     pub fn new(
         context: &'ctxt Context,
         module: &'a Module<'ctxt>,
@@ -39,7 +40,7 @@ impl<'ctxt, 'a> ModifyBlock<'ctxt, 'a> {
         }
     }
 
-    pub fn build(&self, modify_val: i16) {
+    pub fn build(&self) {
         let current_tape_pos = self
             .builder
             .build_load(self.tape_pos, "tape_pos")
@@ -56,17 +57,14 @@ impl<'ctxt, 'a> ModifyBlock<'ctxt, 'a> {
             )
         };
 
-        let old_value = self
-            .builder
-            .build_load(ptr_to_value, "value")
-            .into_int_value();
-        let new_value = self.builder.build_int_add(
-            old_value,
-            self.context.i32_type().const_int(modify_val as u64, false),
-            "new_value",
-        );
+        let getchar_fn = self.module.get_function("getchar").unwrap();
 
-        self.builder.build_store(ptr_to_value, new_value);
-        self.builder.build_return(None);
+        let input = self
+            .builder
+            .build_call(getchar_fn, &[], "input")
+            .try_as_basic_value()
+            .unwrap_left();
+
+        self.builder.build_store(ptr_to_value, input);
     }
 }

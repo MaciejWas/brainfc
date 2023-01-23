@@ -2,9 +2,8 @@ use inkwell::basic_block::BasicBlock;
 use inkwell::builder::Builder;
 use inkwell::context::Context;
 use inkwell::module::{Linkage, Module};
-use inkwell::targets::{
-    CodeModel, FileType, InitializationConfig, RelocMode, Target, TargetMachine,
-};
+use inkwell::targets::FileType;
+use inkwell::targets::{CodeModel, InitializationConfig, RelocMode, Target, TargetMachine};
 use inkwell::types::{IntType, PointerType};
 use inkwell::values::{FunctionValue, IntValue, PointerValue};
 use inkwell::AddressSpace;
@@ -14,15 +13,16 @@ use crate::app::Args;
 use crate::lexer::Op;
 use crate::parser::{Block, Program};
 
-pub struct ModifyBlock<'ctxt, 'a> {
+pub struct Reset<'ctxt, 'a> {
     context: &'ctxt Context,
     module: &'a Module<'ctxt>,
     builder: &'a Builder<'ctxt>,
+
     tape: PointerValue<'ctxt>,
     tape_pos: PointerValue<'ctxt>,
 }
 
-impl<'ctxt, 'a> ModifyBlock<'ctxt, 'a> {
+impl<'ctxt, 'a> Reset<'ctxt, 'a> {
     pub fn new(
         context: &'ctxt Context,
         module: &'a Module<'ctxt>,
@@ -39,7 +39,7 @@ impl<'ctxt, 'a> ModifyBlock<'ctxt, 'a> {
         }
     }
 
-    pub fn build(&self, modify_val: i16) {
+    pub fn build(&self) {
         let current_tape_pos = self
             .builder
             .build_load(self.tape_pos, "tape_pos")
@@ -56,17 +56,8 @@ impl<'ctxt, 'a> ModifyBlock<'ctxt, 'a> {
             )
         };
 
-        let old_value = self
-            .builder
-            .build_load(ptr_to_value, "value")
-            .into_int_value();
-        let new_value = self.builder.build_int_add(
-            old_value,
-            self.context.i32_type().const_int(modify_val as u64, false),
-            "new_value",
-        );
-
-        self.builder.build_store(ptr_to_value, new_value);
+        self.builder
+            .build_store(ptr_to_value, self.context.i32_type().const_int(0, false));
         self.builder.build_return(None);
     }
 }

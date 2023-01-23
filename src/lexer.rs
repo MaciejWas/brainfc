@@ -2,7 +2,12 @@ use log::{debug, info};
 
 #[derive(PartialEq, Eq)]
 pub enum Op {
-    Modify(i16), Move(i16), Outp(u16), Inp(u16), LBr, RBr,
+    Modify(i16),
+    Move(i16),
+    Outp(u16),
+    Inp(u16),
+    LBr,
+    RBr,
 }
 
 impl std::fmt::Debug for Op {
@@ -13,7 +18,7 @@ impl std::fmt::Debug for Op {
             Op::Outp(x) => write!(f, "(out {})", x),
             Op::Inp(x) => write!(f, "(inp {})", x),
             Op::LBr => write!(f, "( [ )"),
-            Op::RBr => write!(f, "( ] )")
+            Op::RBr => write!(f, "( ] )"),
         }
     }
 }
@@ -25,19 +30,24 @@ impl Op {
         match self {
             Modify(_) => true,
             Move(_) => true,
-            _ => false
+            _ => false,
         }
     }
 
     fn is_same_operation(&self, other: &Op) -> bool {
-       std::mem::discriminant(self) == std::mem::discriminant(other) 
+        std::mem::discriminant(self) == std::mem::discriminant(other)
     }
 
     pub fn get_val(&self) -> i16 {
         use Op::*;
         match self {
-            Modify(x) => *x, Move(x) => *x, Outp(x) => *x as i16, Inp(x) => *x as i16, LBr => 1, RBr => 1,
-            _ => unreachable!()
+            Modify(x) => *x,
+            Move(x) => *x,
+            Outp(x) => *x as i16,
+            Inp(x) => *x as i16,
+            LBr => 1,
+            RBr => 1,
+            _ => unreachable!(),
         }
     }
 
@@ -45,7 +55,7 @@ impl Op {
         use Op::*;
         match self {
             LBr | RBr => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -60,14 +70,13 @@ impl Op {
             ']' => Some(RBr),
             ',' => Some(Inp(1)),
             '.' => Some(Outp(1)),
-            _   => None
+            _ => None,
         }
     }
-
 }
 
 fn squash(mut vec: Vec<Op>, next_token: Op) -> Vec<Op> {
-    use Op::*; 
+    use Op::*;
 
     let Some(token) = vec.last_mut() else {
         vec.push(next_token);
@@ -87,18 +96,19 @@ fn squash(mut vec: Vec<Op>, next_token: Op) -> Vec<Op> {
     let update = next_token.get_val();
 
     *token = match token {
-        Move(x) => Move(*x + update), 
-        Modify(x)  => Modify(*x +update), 
-        Outp(x)    => Outp(*x + update as u16), 
-        Inp(x)     => Inp(*x + update as u16), 
-        _ => unreachable!()
+        Move(x) => Move(*x + update),
+        Modify(x) => Modify(*x + update),
+        Outp(x) => Outp(*x + update as u16),
+        Inp(x) => Inp(*x + update as u16),
+        _ => unreachable!(),
     };
 
     return vec;
 }
 
 pub fn parse(program: &String) -> Vec<Op> {
-    let unflattened = program.chars()
+    let unflattened = program
+        .chars()
         .map(Op::from_char)
         .filter(Option::is_some)
         .map(Option::unwrap)

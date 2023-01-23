@@ -1,6 +1,6 @@
+use crate::lexer::Op;
 use crate::optimizations::base::Optimization;
 use crate::parser::{Block, Program};
-use crate::lexer::Op;
 
 pub struct ResetValOpt;
 impl Optimization for ResetValOpt {
@@ -10,17 +10,17 @@ impl Optimization for ResetValOpt {
         };
 
         if subblocks.len() != 1 {
-            return None
+            return None;
         };
 
         let Block::Simple(ref ops) = subblocks[0] else {
             return None
         };
 
-        if let [ Op::Modify(-1) ] = ops[..] {
-            return Some( Block::Reset { offset: 0 } )
+        if let [Op::Modify(-1)] = ops[..] {
+            return Some(Block::Reset { offset: 0 });
         }
 
-        return None
+        return None;
     }
 }
