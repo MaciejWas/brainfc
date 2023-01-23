@@ -57,6 +57,5 @@ impl<'ctxt, 'a> ModifyBlock<'ctxt, 'a> {
         );
 
         self.builder.build_store(ptr_to_value, new_value);
-        self.builder.build_return(None);
     }
 }

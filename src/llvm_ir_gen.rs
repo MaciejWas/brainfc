@@ -304,6 +304,7 @@ pub fn compile(program: Program, args: Args) {
     let mut llvm_builder = LLVMBuilder::new(&context, &module, &builder, args);
 
     llvm_builder.load_libc();
+    llvm_builder.create_main_fn();
 
     llvm_builder.compile(&program);
 

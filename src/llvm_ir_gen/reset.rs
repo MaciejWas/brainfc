@@ -49,6 +49,5 @@ impl<'ctxt, 'a> Reset<'ctxt, 'a> {
 
         self.builder
             .build_store(ptr_to_value, self.context.i32_type().const_int(0, false));
-        self.builder.build_return(None);
     }
 }
