@@ -11,6 +11,7 @@ A compiler for the brainfuck programming language. Uses LLVM as it's backend and
 
 
 ## How to run
+Will work on any Linux system with gcc installed (used for linking the llvm output)
 The commands below compile the mandelbrot set generator made by Erik Bosman.
 
 ```
