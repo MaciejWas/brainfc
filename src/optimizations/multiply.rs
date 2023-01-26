@@ -44,7 +44,6 @@ impl Optimization for MultiplyOpt {
                     Op::Modify(x) => init[pos] += x,
                     _ => unreachable!(),
                 }
-                println!("init: {init:?}");
             }
 
             if init[max_cell_distance as usize] != -1 {
@@ -59,14 +58,11 @@ impl Optimization for MultiplyOpt {
                 .filter(|(i, _val)| *i != max_cell_distance as usize)
                 .map(|(i, val)| ((i as i32 - max_cell_distance as i32), val as i32))
                 .collect::<Vec<(i32, i32)>>();
-            println!("DONE");
 
             let has_negative_mods = ops.iter().any(|(i, _val)| *i < 0);
             if has_negative_mods {
-                println!("rejected");
                 return None;
             }
-            println!("accepted");
             return Some(Block::Multiply { ops });
         }
 
