@@ -1,5 +1,14 @@
 # brainfc
-A compiler for the brainfuck programming language. Uses LLVM as it's backend and makes couple easy optimizations
+A compiler for the brainfuck programming language. Uses LLVM as it's backend and makes couple easy optimizations:
+
+ * Sets the main pointer to zero when encountering `[-]`
+ * Detects "multiplication loops", for example `[>++>>+++<<<-]` which is roughly equivalent to pseudocode
+ ``` 
+ arr[ptr+1] = arr[ptr] * 2; 
+ arr[ptr+2] = arr[ptr] * 3; 
+ arr[ptr] = 0
+ ```
+
 
 ## How to run
 The commands below compile the mandelbrot set generator made by Erik Bosman.
