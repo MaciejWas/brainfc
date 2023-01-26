@@ -113,6 +113,5 @@ pub fn parse(program: &String) -> Vec<Op> {
         .fold(Vec::new(), squash);
 
     debug!("Parsed: {:?}", unflattened);
-    println!("{unflattened:?}");
     unflattened
 }
